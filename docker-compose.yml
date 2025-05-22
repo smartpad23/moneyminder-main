@@ -1,0 +1,138 @@
+services:
+  postgres-users:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: moneyminder-users
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5433:5432"
+
+  postgres-expenses:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: moneyminder-expenses
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5434:5432"
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    ports:
+      - "9090:8080"
+    depends_on:
+      - postgres-users
+      - postgres-expenses
+
+  users-dev:
+    profiles: [ "development" ]
+    build: ./moneyMinder-users
+    ports:
+      - "18082:18082"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-users:5432/moneyminder-users
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 12345
+      BUDGET_SERVICE_URL: http://expenses-dev:18081/budget
+    depends_on:
+      - postgres-users
+
+  users-prod:
+    profiles: [ "production" ]
+    image: smartpad/money-minder:users
+    ports:
+      - "18082:18082"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-users:5432/moneyminder-users
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 12345
+      BUDGET_SERVICE_URL: http://expenses-prod:18081/budget
+    depends_on:
+      - postgres-users
+
+  expenses-dev:
+    profiles: [ "development" ]
+    build: ./moneyMinder-expenses
+    ports:
+      - "18081:18081"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-expenses:5432/moneyminder-expenses
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 12345
+      GROUP_SERVICE_URL: http://users-dev:18082/group
+      JWK_SET_URI: http://users-dev:18082/.well-known/jwks.json
+    depends_on:
+      - postgres-expenses
+      - users-dev
+
+  expenses-prod:
+    profiles: [ "production" ]
+    image: smartpad/money-minder:expenses
+    ports:
+      - "18081:18081"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-expenses:5432/moneyminder-expenses
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 12345
+      GROUP_SERVICE_URL: http://users-prod:18082/group
+      JWK_SET_URI: http://users-prod:18082/.well-known/jwks.json
+    depends_on:
+      - postgres-expenses
+      - users-prod
+
+  gateway-dev:
+    profiles: [ "development" ]
+    build: ./moneyMinder-gateway
+    ports:
+      - "18080:18080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      USERS_URL: http://users-dev:18082
+      EXPENSES_URL: http://expenses-dev:18081
+      JWK_SET_URI: http://users-dev:18082/.well-known/jwks.json
+    depends_on:
+      - users-dev
+      - expenses-dev
+
+  gateway-prod:
+    profiles: [ "production" ]
+    image: smartpad/money-minder:gateway
+    ports:
+      - "18080:18080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      USERS_URL: http://users-prod:18082
+      EXPENSES_URL: http://expenses-prod:18081
+      JWK_SET_URI: http://users-prod:18082/.well-known/jwks.json
+    depends_on:
+      - users-prod
+      - expenses-prod
+
+  frontend-dev:
+    profiles: [ "development" ]
+    build:
+      context: ./moneyMinder-front
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./moneyMinder-front:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - gateway-dev
+
+  frontend-prod:
+    profiles: [ "production" ]
+    image: smartpad/money-minder:front
+    ports:
+      - "8180:80"
+    depends_on:
+      - gateway-prod
