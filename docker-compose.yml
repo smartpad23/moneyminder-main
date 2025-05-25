@@ -42,7 +42,7 @@ services:
 
   users-prod:
     profiles: [ "production" ]
-    image: smartpad/money-minder:users
+    image: smartpad23/moneyminder:users
     ports:
       - "18082:18082"
     environment:
@@ -72,7 +72,7 @@ services:
 
   expenses-prod:
     profiles: [ "production" ]
-    image: smartpad/money-minder:expenses
+    image: smartpad23/moneyminder:expenses
     ports:
       - "18081:18081"
     environment:
@@ -102,7 +102,7 @@ services:
 
   gateway-prod:
     profiles: [ "production" ]
-    image: smartpad/money-minder:gateway
+    image: smartpad23/moneyminder:gateway
     ports:
       - "18080:18080"
     environment:
@@ -131,7 +131,7 @@ services:
 
   frontend-prod:
     profiles: [ "production" ]
-    image: smartpad/money-minder:front
+    image: smartpad23/moneyminder:front
     ports:
       - "8180:80"
     depends_on:
